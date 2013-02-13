@@ -29,4 +29,3 @@ group :development do
   gem 'yard'
   gem 'redcarpet'
 end
-
