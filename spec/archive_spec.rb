@@ -20,10 +20,6 @@ describe Backup::Archive do
       archive.tar_args.should == ''
     end
 
-    it 'should set allow_exit1 to false' do
-      archive.allow_exit1.should be(false)
-    end
-
     it 'should set a reference to the given model' do
       archive.instance_variable_get(:@model).should be(model)
     end
@@ -41,7 +37,6 @@ describe Backup::Archive do
           a.exclude 'excluded_path'
           a.exclude 'another/excluded_path'
           a.tar_options '-h --xattrs'
-          a.allow_changed_files
         end
       end
 
@@ -65,10 +60,6 @@ describe Backup::Archive do
 
       it 'should add @tar_args' do
         archive.tar_args.should == '-h --xattrs'
-      end
-
-      it 'should set allow_exit1 to true' do
-        archive.allow_exit1.should be_true
       end
     end
 
@@ -165,11 +156,10 @@ describe Backup::Archive do
           "  /another/path/to/add"
         )
 
-        pipeline.expects(:add).in_sequence(s).with(
+        pipeline.expects(:<<).in_sequence(s).with(
           "tar  -cPf - " +
           "--exclude='/path/to/exclude' --exclude='/another/path/to/exclude' " +
-          "'/path/to/add' '/another/path/to/add'",
-          [0]
+          "'/path/to/add' '/another/path/to/add'"
         )
         pipeline.expects(:<<).in_sequence(s).with(
           "cat > '#{ File.join(archive_path, 'test_archive.tar') }'"
@@ -193,8 +183,8 @@ describe Backup::Archive do
           "  /another/path/to/add"
         )
 
-        pipeline.expects(:add).in_sequence(s).with(
-          "tar  -cPf -  '/path/to/add' '/another/path/to/add'", [0]
+        pipeline.expects(:<<).in_sequence(s).with(
+          "tar  -cPf -  '/path/to/add' '/another/path/to/add'"
         )
         pipeline.expects(:<<).in_sequence(s).with(
           "cat > '#{ File.join(archive_path, 'test_archive.tar') }'"
@@ -210,7 +200,7 @@ describe Backup::Archive do
       end
     end # context 'when no excludes were added'
 
-    context 'with #paths, #excludes, #tar_args' do
+    context 'with #paths, #excludes and #tar_args' do
       before do
         archive.instance_variable_set(:@excludes, excludes)
         archive.instance_variable_set(:@tar_args, '-h --xattrs')
@@ -223,11 +213,10 @@ describe Backup::Archive do
           "  /another/path/to/add"
         )
 
-        pipeline.expects(:add).in_sequence(s).with(
+        pipeline.expects(:<<).in_sequence(s).with(
           "tar -h --xattrs -cPf - " +
           "--exclude='/path/to/exclude' --exclude='/another/path/to/exclude' " +
-          "'/path/to/add' '/another/path/to/add'",
-          [0]
+          "'/path/to/add' '/another/path/to/add'"
         )
         pipeline.expects(:<<).in_sequence(s).with(
           "cat > '#{ File.join(archive_path, 'test_archive.tar') }'"
@@ -259,11 +248,10 @@ describe Backup::Archive do
           "  /another/path/to/add"
         )
 
-        pipeline.expects(:add).in_sequence(s).with(
+        pipeline.expects(:<<).in_sequence(s).with(
           "tar -h --xattrs -cPf - " +
           "--exclude='/path/to/exclude' --exclude='/another/path/to/exclude' " +
-          "'/path/to/add' '/another/path/to/add'",
-          [0]
+          "'/path/to/add' '/another/path/to/add'"
         )
         pipeline.expects(:<<).in_sequence(s).with('gzip')
         pipeline.expects(:<<).in_sequence(s).with(
@@ -280,39 +268,9 @@ describe Backup::Archive do
       end
     end # context 'with #paths, #excludes, #tar_args and a Gzip Compressor'
 
-    context 'when allow_changed_files is true' do
-      before do
-        archive.instance_variable_set(:@allow_exit1, true)
-      end
-
-      it 'should allow exit status 1' do
-        Backup::Logger.expects(:info).in_sequence(s).with(
-          "Backup::Archive has started archiving:\n" +
-          "  /path/to/add\n" +
-          "  /another/path/to/add"
-        )
-
-        pipeline.expects(:add).in_sequence(s).with(
-          "tar  -cPf -  '/path/to/add' '/another/path/to/add'", [0, 1]
-        )
-        pipeline.expects(:<<).in_sequence(s).with(
-          "cat > '#{ File.join(archive_path, 'test_archive.tar') }'"
-        )
-        pipeline.expects(:run).in_sequence(s)
-        pipeline.expects(:success?).in_sequence(s).returns(true)
-
-        Backup::Logger.expects(:info).in_sequence(s).with(
-          "Backup::Archive Complete!"
-        )
-
-        archive.perform!
-      end
-    end # context 'when no excludes were added'
-
     context 'when pipeline command fails' do
       before do
         pipeline.stubs(:<<)
-        pipeline.stubs(:add)
         pipeline.expects(:run)
         pipeline.expects(:success?).returns(false)
         pipeline.expects(:error_messages).returns('pipeline_errors')

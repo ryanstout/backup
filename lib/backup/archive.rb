@@ -6,23 +6,19 @@ module Backup
 
     ##
     # Stores the name of the archive
-    attr_reader :name
+    attr_accessor :name
 
     ##
     # Stores an array of different paths/files to store
-    attr_reader :paths
+    attr_accessor :paths
 
     ##
     # Stores an array of different paths/files to exclude
-    attr_reader :excludes
+    attr_accessor :excludes
 
     ##
-    # Stores string of additional arguments for the `tar` command
-    attr_reader :tar_args
-
-    ##
-    # Stores option to allow changed files
-    attr_reader :allow_exit1
+    # String of additional arguments for the `tar` command
+    attr_accessor :tar_args
 
     ##
     # Takes the name of the archive and the configuration block
@@ -32,7 +28,6 @@ module Backup
       @paths    = Array.new
       @excludes = Array.new
       @tar_args = ''
-      @allow_exit1 = false
 
       instance_eval(&block) if block_given?
     end
@@ -66,17 +61,6 @@ module Backup
     end
 
     ##
-    # Allows an archive with files that were changed during the archive
-    # process to complete successfully. i.e. allows `tar` exit status 1
-    #
-    # Note that the archive job will still log a warning should this occur.
-    # You may add `--warning=no-file-changed` to `tar_options` if you wish
-    # to supress these warnings.
-    def allow_changed_files(val = true)
-      @allow_exit1 = val
-    end
-
-    ##
     # Archives all the provided paths in to a single .tar file
     # and places that .tar file in the folder which later will be packaged
     # If the model is configured with a Compressor, the tar command output
@@ -92,11 +76,8 @@ module Backup
       archive_ext = 'tar'
       pipeline = Pipeline.new
 
-      pipeline.add(
-        "#{ utility(:tar) } #{ tar_args } -cPf - " +
-        "#{ paths_to_exclude } #{ paths_to_package }",
-        allow_exit1 ? [0, 1] : [0]
-      )
+      pipeline << "#{ utility(:tar) } #{ tar_args } -cPf - " +
+          "#{ paths_to_exclude } #{ paths_to_package }"
 
       if @model.compressor
         @model.compressor.compress_with do |command, ext|
